@@ -1,17 +1,8 @@
 $startupFolder = [System.Environment]::GetFolderPath('Startup')
-$shortcutPath = Join-Path $startupFolder "System_Wake_Launcher.lnk"
-$scriptPath = "c:\Users\abhee\arc-task-gen\hybrid_listener.py"
+$shortcutPath1 = Join-Path $startupFolder "System_Wake_Launcher.lnk"
+$shortcutPath2 = Join-Path $startupFolder "JARVIS_Silent_Wake_Listener.lnk"
 
+if (Test-Path $shortcutPath1) { Remove-Item $shortcutPath1 -Force }
+if (Test-Path $shortcutPath2) { Remove-Item $shortcutPath2 -Force }
 
-$WScriptShell = New-Object -ComObject WScript.Shell
-$Shortcut = $WScriptShell.CreateShortcut($shortcutPath)
-$Shortcut.TargetPath = "C:\Users\abhee\AppData\Local\Programs\Python\Python313\pythonw.exe"
-$Shortcut.Arguments = "`"$scriptPath`""
-$Shortcut.WorkingDirectory = "c:\Users\abhee\arc-task-gen"
-$Shortcut.Description = "Silently listens for 'wake up' to automatically start Run_Jarvis.bat in CMD"
-$Shortcut.Save()
-
-
-
-Write-Host "✅ System Wake Launcher added to Windows Startup folder successfully!"
-Write-Host "Shortcut created at: $shortcutPath"
+Write-Host "✅ JARVIS background voice listener removed from Windows Startup successfully!"

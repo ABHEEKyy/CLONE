@@ -14,16 +14,14 @@ shell = win32com.client.Dispatch("WScript.Shell")
 
 icon_path = os.path.join(project_dir, "jarvis_icon.ico")
 
-# 1. Startup Shortcut (Runs silently on PC boot)
+# 1. Ensure any Startup Shortcut is removed so JARVIS does not auto-launch on boot
 startup_lnk_path = os.path.join(startup_folder, "JARVIS_Silent_Wake_Listener.lnk")
-shortcut = shell.CreateShortcut(startup_lnk_path)
-shortcut.TargetPath = "wscript.exe"
-shortcut.Arguments = f'"{vbs_script}"'
-shortcut.WorkingDirectory = project_dir
-shortcut.IconLocation = icon_path
-shortcut.Description = "J.A.R.V.I.S. Automated Startup Background Voice Listener"
-shortcut.Save()
-print(f"[SUCCESS] Created Startup Shortcut: {startup_lnk_path}")
+if os.path.exists(startup_lnk_path):
+    try:
+        os.remove(startup_lnk_path)
+        print(f"[SUCCESS] Removed Startup Shortcut: {startup_lnk_path}")
+    except Exception as e:
+        print(f"[WARNING] Could not remove startup shortcut: {e}")
 
 onedrive_desktop = os.path.join(userprofile, "OneDrive", "Desktop")
 target_desktop = onedrive_desktop if os.path.exists(onedrive_desktop) else desktop_folder
