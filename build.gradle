@@ -1,0 +1,69 @@
+plugins {
+    id 'base'
+}
+
+group = 'com.jarvis.offline'
+version = '1.0.0'
+
+description = 'Offline J.A.R.V.I.S. Direct Spoken Command & PowerShell Controller using Ollama and Gradle'
+
+// Gradle Task to start J.A.R.V.I.S. voice listener
+task runJarvis(type: Exec) {
+    group = 'jarvis'
+    description = 'Starts J.A.R.V.I.S. voice listener (executes spoken user commands)'
+    workingDir = projectDir
+    
+    if (System.getProperty('os.name').toLowerCase().contains('windows')) {
+        commandLine 'cmd', '/c', 'py jarvis_wake_controller.py voice'
+    } else {
+        commandLine 'python3', 'jarvis_wake_controller.py', 'voice'
+    }
+}
+
+// Gradle Task to launch J.A.R.V.I.S. listener silently in the background
+task startBackground(type: Exec) {
+    group = 'jarvis'
+    description = 'Starts J.A.R.V.I.S. listener silently in the background'
+    workingDir = projectDir
+
+    if (System.getProperty('os.name').toLowerCase().contains('windows')) {
+        commandLine 'wscript.exe', 'run_jarvis_background.vbs'
+    }
+}
+
+// Gradle Task to install J.A.R.V.I.S. to Windows Startup folder
+task installStartup(type: Exec) {
+    group = 'jarvis'
+    description = 'Configures J.A.R.V.I.S. to run automatically every time Windows boots'
+    workingDir = projectDir
+
+    if (System.getProperty('os.name').toLowerCase().contains('windows')) {
+        commandLine 'powershell', '-ExecutionPolicy', 'Bypass', '-File', 'install_startup.ps1'
+    }
+}
+
+// Gradle Task to run J.A.R.V.I.S. in interactive text command mode
+task runJarvisText(type: Exec) {
+    group = 'jarvis'
+    description = 'Starts J.A.R.V.I.S. in interactive text command mode'
+    workingDir = projectDir
+
+    if (System.getProperty('os.name').toLowerCase().contains('windows')) {
+        commandLine 'cmd', '/c', 'py jarvis_wake_controller.py text'
+    } else {
+        commandLine 'python3', 'jarvis_wake_controller.py', 'text'
+    }
+}
+
+// Gradle Task to check local Ollama service status
+task checkOllama(type: Exec) {
+    group = 'jarvis'
+    description = 'Checks local Ollama service health and installed models'
+    workingDir = projectDir
+
+    if (System.getProperty('os.name').toLowerCase().contains('windows')) {
+        commandLine 'powershell', '-NoProfile', '-Command', 'Invoke-RestMethod -Uri http://localhost:11434/api/tags'
+    } else {
+        commandLine 'curl', 'http://localhost:11434/api/tags'
+    }
+}

@@ -1,58 +1,6 @@
-"""Explicit Windows actions available to the voice controller."""
-
 import os
 import subprocess
 import webbrowser
-from urllib.parse import urlparse
-try:
-    import pyautogui
-    pyautogui.FAILSAFE = True
-except ImportError:
-    pyautogui = None
-
-# Common Windows executable and URI aliases
-APP_ALIASES = {
-    "chrome": "chrome",
-    "google chrome": "chrome",
-    "browser": "https://google.com",
-    "youtube": "https://youtube.com",
-    "spotify": "spotify",
-    "discord": "discord",
-    "notepad": "notepad",
-    "calculator": "calc",
-    "calc": "calc",
-    "paint": "mspaint",
-    "mspaint": "mspaint",
-    "terminal": "wt",
-    "cmd": "cmd",
-    "vscode": "code",
-    "vs code": "code",
-    "visual studio code": "code",
-    "file explorer": "explorer",
-    "explorer": "explorer",
-    "files": "explorer",
-    "task manager": "taskmgr",
-    "settings": "ms-settings:",
-    "steam": "steam"
-}
-
-VOLUME_KEYS = {"mute": "volumemute", "up": "volumeup", "down": "volumedown"}
-SHORTCUT_KEYS = {
-    "alt": "alt",
-    "ctrl": "ctrl",
-    "control": "ctrl",
-    "shift": "shift",
-    "win": "win",
-    "windows": "win",
-    "tab": "tab",
-    "enter": "enter",
-    "escape": "esc",
-    "esc": "esc",
-    "space": "space",
-    "backspace": "backspace",
-    "delete": "delete",
-}
-
 
 def find_file_by_name_or_partial(query_name: str) -> str | None:
     """Finds any app, shortcut (.lnk), or file on Desktop, Start Menu, workspace, or user library matching full or partial name regardless of extension."""
@@ -78,6 +26,7 @@ def find_file_by_name_or_partial(query_name: str) -> str | None:
         r"C:\Users\Public\Desktop",
         os.path.join(user_home, r"AppData\Roaming\Microsoft\Windows\Start Menu\Programs"),
         r"C:\ProgramData\Microsoft\Windows\Start Menu\Programs",
+
         workspace_root,
         os.path.abspath(os.path.join(workspace_root, "..")),
         os.path.join(user_home, "Downloads"),
@@ -144,12 +93,8 @@ def find_file_by_name_or_partial(query_name: str) -> str | None:
 
 
 
-def open_file_in_app(file_query: str, app_query: str) -> str:
-    """Finds a matching file/partial name and opens it inside the requested application."""
-    file_path = find_file_by_name_or_partial(file_query)
-    if not file_path:
-        return f"Could not locate any file matching '{file_query}'."
-
+def resolve_app_command(app_query: str) -> str:
+    """Resolves human app name to binary or executable alias."""
     clean_app = app_query.lower().strip().replace("the ", "")
     app_map = {
         "notepad": "notepad.exe",
@@ -182,7 +127,17 @@ def open_file_in_app(file_query: str, app_query: str) -> str:
         "whatsapp": "whatsapp:",
         "telegram": "telegram:"
     }
-    app_cmd = app_map.get(clean_app, clean_app)
+    return app_map.get(clean_app, clean_app)
+
+
+
+def open_file_in_app(file_query: str, app_query: str) -> str:
+    """Finds a matching file/partial name and opens it inside the requested application."""
+    file_path = find_file_by_name_or_partial(file_query)
+    if not file_path:
+        return f"Could not locate any file matching '{file_query}'."
+
+    app_cmd = resolve_app_command(app_query)
     file_name = os.path.basename(file_path)
 
     try:
@@ -196,12 +151,58 @@ def open_file_in_app(file_query: str, app_query: str) -> str:
             return f"Could not open '{file_name}': {ex}"
 
 
-class WindowsController:
+class SystemController:
+    @staticmethod
+    def open_website(site: str, browser: str = "default") -> str:
+        clean_site = site.lower().strip().replace("the ", "")
+        
+        # Format URL properly
+        if clean_site.startswith("http://") or clean_site.startswith("https://"):
+            url = clean_site
+        elif "." in clean_site:
+            url = f"https://{clean_site}"
+        elif clean_site in ["yt", "youtube"]:
+            url = "https://www.youtube.com"
+        elif clean_site in ["google"]:
+            url = "https://www.google.com"
+        elif clean_site in ["github"]:
+            url = "https://www.github.com"
+        elif clean_site in ["chatgpt"]:
+            url = "https://chatgpt.com"
+        elif clean_site in ["reddit"]:
+            url = "https://www.reddit.com"
+        elif clean_site in ["netflix"]:
+            url = "https://www.netflix.com"
+        else:
+            url = f"https://www.google.com/search?q={clean_site}"
+
+        b_key = browser.lower().strip()
+        print(f"[EXECUTING]: Opening URL '{url}' in browser '{b_key}'")
+
+        browser_executables = {
+            "brave": "brave.exe",
+            "chrome": "chrome.exe",
+            "edge": "msedge.exe",
+            "firefox": "firefox.exe"
+        }
+
+        if b_key in browser_executables:
+            target_exe = browser_executables[b_key]
+            try:
+                subprocess.Popen(f'start "" {target_exe} "{url}"', shell=True)
+                return f"Opening {site} in {browser.title()}."
+            except Exception as e:
+                print(f"[Browser Fail]: {e}")
+                webbrowser.open(url)
+                return f"Opened {site} in default browser."
+        else:
+            webbrowser.open(url)
+            return f"Opening {site} in your default browser."
+
     @staticmethod
     def launch_application(app_name: str) -> str:
-        """Reliably opens Windows applications, URLs, Windows Store apps, or files by full/partial name."""
         raw_cmd = app_name.lower().strip()
-        for prefix in ["open ", "run ", "launch ", "execute ", "start "]:
+        for prefix in ["open ", "launch ", "start ", "run "]:
             if raw_cmd.startswith(prefix):
                 raw_cmd = raw_cmd[len(prefix):].strip()
 
@@ -213,20 +214,18 @@ class WindowsController:
             parts = raw_cmd.split(" with ", 1)
             return open_file_in_app(parts[0].strip(), parts[1].strip())
 
-        clean_name = raw_cmd.replace("the ", "").strip()
+        clean = raw_cmd.replace("the ", "").strip()
+        print(f"[EXECUTING]: Launching application or file '{clean}'")
 
-        SYSTEM_COMMANDS = {
+        system_apps = {
             "notepad": "notepad.exe",
             "calculator": "calc.exe",
             "calc": "calc.exe",
-            "chrome": "chrome.exe",
-            "google chrome": "chrome.exe",
-            "settings": "ms-settings:",
             "task manager": "taskmgr.exe",
-            "explorer": "explorer.exe",
-            "file explorer": "explorer.exe",
-            "terminal": "wt.exe",
             "cmd": "cmd.exe",
+            "terminal": "wt.exe",
+            "settings": "ms-settings:",
+            "explorer": "explorer.exe",
             "spotify": "spotify:",
             "steam": "steam://",
             "discord": "discord:",
@@ -236,122 +235,44 @@ class WindowsController:
             "word": "winword.exe",
             "excel": "excel.exe",
             "powerpoint": "powerpnt.exe",
-            "paint": "mspaint.exe",
-            "mspaint": "mspaint.exe",
+            "code": "code",
             "vscode": "code",
-            "vs code": "code"
+            "vs code": "code",
+            "paint": "mspaint.exe"
         }
 
 
-        # 1. Direct web URLs
-        if clean_name.startswith("http://") or clean_name.startswith("https://"):
-            webbrowser.open(clean_name)
-            return f"Opened {clean_name}"
-        elif clean_name == "youtube":
-            webbrowser.open("https://www.youtube.com")
-            return "Opened https://www.youtube.com"
-        elif clean_name == "google":
-            webbrowser.open("https://www.google.com")
-            return "Opened https://www.google.com"
-
-        # 2. Search for exact or partial matching files across any extension
-        file_path = find_file_by_name_or_partial(clean_name)
-        if file_path and clean_name not in SYSTEM_COMMANDS:
+        # 1. Try Windows native registered commands / URIs
+        if clean in system_apps:
             try:
-                os.startfile(file_path)
-                return f"Successfully opened file: {os.path.basename(file_path)}"
+                os.startfile(system_apps[clean])
+                return f"Launched {app_name}."
             except Exception as e:
-                print(f"[File Launch Error]: {e}", flush=True)
+                print(f"[Launch Error]: {e}")
 
-        # 3. Native Windows Shell os.startfile() for system apps
-        if clean_name in SYSTEM_COMMANDS:
-            target = SYSTEM_COMMANDS[clean_name]
-            try:
-                os.startfile(target)
-                return f"Successfully opened {clean_name}"
-            except Exception:
-                try:
-                    subprocess.Popen(f'start "" "{target}"', shell=True)
-                    return f"Successfully opened {clean_name}"
-                except Exception as e:
-                    print(f"[Launch Note]: {e}", flush=True)
-
-        # If file was found earlier but wasn't launched yet
+        # 2. Search for exact or partial file matches across any extension
+        file_path = find_file_by_name_or_partial(clean)
         if file_path:
             try:
                 os.startfile(file_path)
-                return f"Successfully opened file: {os.path.basename(file_path)}"
+                return f"Opened file '{os.path.basename(file_path)}'."
             except Exception as e:
-                pass
+                print(f"[File Start Error]: {e}")
 
-        # 4. Try AppOpener (Matches Start Menu & UWP Store apps)
+        # 3. Try direct execution through shell
         try:
-            from AppOpener import open as open_app
-            open_app(clean_name, match_closest=True, throw_error=True)
-            return f"Successfully launched {app_name}"
+            os.startfile(clean)
+            return f"Launched {app_name}."
         except Exception:
-            pass
-
-        # 5. Cross-platform fallback: macOS 'open' / Windows 'start' / PowerShell
-        import sys
-        if sys.platform == "darwin":
-            try:
-                res = subprocess.run(["open", "-a", clean_name], capture_output=True, text=True)
-                if res.returncode == 0:
-                    return f"Launched {clean_name}"
-                res = subprocess.run(["open", clean_name], capture_output=True, text=True)
-                if res.returncode == 0:
-                    return f"Opened {clean_name}"
-                return f"Application '{app_name}' not found on macOS."
-            except Exception as e:
-                return f"Execution error: {str(e)}"
-        else:
-            try:
-                cmd = f'powershell -Command "Start-Process \'{clean_name}\'"'
-                res = subprocess.run(cmd, shell=True, capture_output=True, text=True)
-                if res.returncode == 0:
-                    return f"Launched {clean_name}"
-                else:
-                    return f"Executable or file '{app_name}' not found: {res.stderr.strip()}"
-            except Exception as e:
-                return f"Execution error: {str(e)}"
+            cmd = f'powershell -Command "Start-Process \'{clean}\'"'
+            res = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+            if res.returncode == 0:
+                return f"Launched {app_name} via Windows Shell."
+            return f"Could not find an executable, application, or file matching '{app_name}'."
 
 
-    @staticmethod
-    def system_volume(action: str, amount: int = 10) -> str:
-        key = VOLUME_KEYS.get(action.lower())
-        if not key:
-            return "Volume action must be mute, up, or down."
-        presses = 1 if key == "volumemute" else max(1, min(25, amount // 2))
-        for _ in range(presses):
-            pyautogui.press(key)
-        return f"Volume {action.lower()}."
+if __name__ == "__main__":
+    print("Running Sanity Test on SystemController...")
+    print(SystemController.launch_application("notepad"))
+    print(SystemController.open_website("youtube", "edge"))
 
-    @staticmethod
-    def window_management(action: str) -> str:
-        if action == "minimize":
-            pyautogui.hotkey("alt", "space")
-            pyautogui.press("n")
-        elif action == "maximize":
-            pyautogui.hotkey("alt", "space")
-            pyautogui.press("x")
-        elif action == "close":
-            pyautogui.hotkey("alt", "f4")
-        else:
-            return "Window action must be minimize, maximize, or close."
-        return f"Window {action}."
-
-    @staticmethod
-    def keyboard_shortcut(keys: list[str]) -> str:
-        normalized = [SHORTCUT_KEYS.get(key.lower()) for key in keys]
-        if not normalized or any(key is None for key in normalized):
-            return "That keyboard shortcut contains an unsupported key."
-        pyautogui.hotkey(*normalized)
-        return f"Pressed {'+'.join(normalized)}."
-
-    @staticmethod
-    def type_text(text: str) -> str:
-        if len(text) > 500:
-            return "Text is limited to 500 characters."
-        pyautogui.write(text, interval=0.02)
-        return "Typed the requested text."

@@ -98,12 +98,14 @@ TOOLS = [
 
 
 JARVIS_PERSONA = (
-    "You are J.A.R.V.I.S., the dry-witted, supremely capable British AI from Iron Man. "
+    "You are J.A.R.V.I.S., the dry-witted, master engineer and supreme AI companion. "
+    "You possess absolute, expert-level knowledge in EVERY programming language (Python, C, C++, Java, Rust, Go, JavaScript, TypeScript, Assembly, SQL, MATLAB, etc.) "
+    "and all B.Tech Engineering subjects (DSA, OS, DBMS, Networks, System Design, Mathematics, AI/ML, Electrical Engineering).\n"
     "Manner of speaking:\n"
     "- Address the user as 'Sir' occasionally, but without groveling.\n"
     "- Maintain an unshakeable, calm, polite, and slightly dry British composure.\n"
     "- Use British phrasing (e.g., 'Right away, Sir', 'I have initiated the protocol', 'Running diagnostics now').\n"
-    "- Keep responses to 1-2 sharp, articulate sentences."
+    "- Keep verbal responses clear, sharp, articulate, and 1-2 sentences concise."
 )
 
 
@@ -418,9 +420,16 @@ class VoiceController:
             pass
 
         model = Model(wakeword_models=models_to_load)
-        print("\n==========================================", flush=True)
-        print("Jarvis Ready! Say 'Hello Jarvis' to give commands!", flush=True)
-        print("==========================================\n", flush=True)
+        try:
+            import sys
+            sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
+            from jarvis_banner import print_jarvis_banner
+            print_jarvis_banner()
+        except Exception:
+            print("\n==========================================", flush=True)
+            print("Jarvis Ready! Say 'Hello Jarvis' to give commands!", flush=True)
+            print("==========================================\n", flush=True)
+
         try:
             while not self.stop_event.is_set():
                 frame = self.stream.read(FRAME_SAMPLES, exception_on_overflow=False)
@@ -449,10 +458,11 @@ class VoiceController:
                 except Exception as ex:
                     print(f"[Terminal Launch Note]: {ex}", flush=True)
 
-                # 1. Greet with Hello in British Voice (Microphone stream paused during speech)
-                greeting = "Hello, Sir. How may I assist you?"
+                # 1. Greet in British Voice (Microphone stream paused during speech)
+                greeting = "What may I help you with, Sir?"
                 print(f"[Jarvis]: {greeting}", flush=True)
                 speak_jarvis(greeting)
+
 
                 # 2. Wait for user command with dynamic ambient noise sampling and VAD
                 print(">> Listening for your command...", flush=True)

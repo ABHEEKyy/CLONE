@@ -12,34 +12,49 @@ import pyaudio
 import openwakeword
 from openwakeword.model import Model
 
-SAMPLE_RATE = 16_000
-FRAME_SAMPLES = 1280
-WAKE_THRESHOLD = 0.10
-IPC_PORT = 8799
+import tempfile
+import psutil
 
+LOCK_FILE = os.path.join(tempfile.gettempdir(), "jarvis_active_assistant.lock")
+
+def is_jarvis_running() -> bool:
+    """Checks if an active Jarvis instance is already running."""
+    if os.path.exists(LOCK_FILE):
+        try:
+            with open(LOCK_FILE, "r", encoding="utf-8") as f:
+                pid_str = f.read().strip()
+                if pid_str.isdigit() and psutil.pid_exists(int(pid_str)):
+                    return True
+        except Exception:
+            pass
+
+    curr_pid = os.getpid()
+    for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
+        try:
+            if proc.info['pid'] == curr_pid:
+                continue
+            cmdline = " ".join(proc.info.get('cmdline') or []).lower()
+            if any(s in cmdline for s in ["jarvis_voice_assistant.py", "jarvis_unified.py", "jarvis_ollama.py", "jarvis_wake_controller.py"]):
+                return True
+        except Exception:
+            continue
+    return False
 
 def trigger_jarvis_bubble():
-    """Wakes the existing Siri Bubble via local socket IPC, or launches it with python."""
-    # 1. Try waking running bubble on port 8799
-    try:
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.settimeout(0.5)
-            s.connect(("127.0.0.1", IPC_PORT))
-            s.sendall(b"WAKE\n")
-            print("[Daemon]: Sent WAKE signal to active Siri bubble.", flush=True)
-            return
-    except Exception:
-        pass
+    """Launches J.A.R.V.I.S. in CMD terminal via Run_Jarvis.bat if not active."""
+    if is_jarvis_running():
+        print("⚡ [Daemon Ignored] J.A.R.V.I.S. is already active.", flush=True)
+        return
 
-    # 2. Launch jarvis_bubble.py or Run_Jarvis.bat
-    bubble_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "jarvis_bubble.py"))
-    python_bin = sys.executable
+    repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+    bat_path = os.path.join(repo_root, "Run_Jarvis.bat")
 
     try:
-        print(f">> [Auto-Opening Siri Bubble HUD]: {bubble_path}", flush=True)
-        subprocess.Popen([python_bin, bubble_path], cwd=os.path.dirname(bubble_path))
+        print(f">> [Opening CMD Terminal Controller]: {bat_path}", flush=True)
+        subprocess.Popen(f'start "J.A.R.V.I.S." "{bat_path}"', shell=True)
     except Exception as e:
-        print(f"[Bubble Launch Error]: {e}", flush=True)
+        print(f"[CMD Launch Error]: {e}", flush=True)
+
 
 
 def listen_for_hey_jarvis():
@@ -69,8 +84,8 @@ def listen_for_hey_jarvis():
             frame = stream.read(FRAME_SAMPLES, exception_on_overflow=False)
             prediction = model.predict(np.frombuffer(frame, dtype=np.int16))
             score = max([v for k, v in prediction.items() if "jarvis" in k.lower()], default=0.0)
-            if score >= WAKE_THRESHOLD:
-                print(f"\n>> ['Hey Jarvis' Detected! Activating Siri Bubble...]", flush=True)
+            if score >= 0.50:
+                print(f"\n>> ['Hey Jarvis' Detected! Activating Assistant...]", flush=True)
                 import winsound
                 winsound.Beep(880, 100)
                 winsound.Beep(1320, 150)
@@ -79,7 +94,13 @@ def listen_for_hey_jarvis():
 
                 if hasattr(model, "reset"):
                     model.reset()
-                time.sleep(4)
+                time.sleep(10)
+                try:
+                    avail = stream.get_read_available()
+                    if avail > 0:
+                        stream.read(avail, exception_on_overflow=False)
+                except Exception:
+                    pass
     finally:
         stream.stop_stream()
         stream.close()
