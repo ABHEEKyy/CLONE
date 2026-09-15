@@ -9,13 +9,9 @@ if (-not $python) {
 }
 
 $taskName = "Jarvis Ambient Voice Assistant"
-$script = Join-Path $PSScriptRoot "jarvis_daemon.py"
-
-$action = New-ScheduledTaskAction -Execute $python -Argument "`"$script`"" -WorkingDirectory $repo
-$trigger = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
-$settings = New-ScheduledTaskSettingsSet -ExecutionTimeLimit ([TimeSpan]::Zero) -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
-
-Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Settings $settings -Description "Runs lightweight Jarvis wake daemon in background. Pops up CMD terminal when JARVIS is called." -Force | Out-Null
-Start-ScheduledTask -TaskName $taskName
-
-Write-Host "Jarvis Background Daemon installed & started! It will pop up the CMD terminal window automatically when you say 'JARVIS'."
+if (Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue) {
+    Unregister-ScheduledTask -TaskName $taskName -Confirm:$false
+    Write-Host "Unregistered scheduled task '$taskName'."
+} else {
+    Write-Host "No scheduled startup task found."
+}
